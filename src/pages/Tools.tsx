@@ -10,11 +10,18 @@ import {
   Search,
   X,
   GitCompare,
+  ExternalLink,
+  Lock,
+  Unlock,
+  User,
+  BarChart3,
+  AlertTriangle,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import useStore from '@/store/useStore';
 import ToolCard from '@/components/ToolCard';
 import { cn } from '@/lib/utils';
+import type { Tool } from '../../shared/types';
 
 export default function Tools() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -25,6 +32,8 @@ export default function Tools() {
   const [sortBy, setSortBy] = useState('popular');
   const [searchInput, setSearchInput] = useState('');
   const [compareList, setCompareList] = useState<string[]>([]);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  const [compareTools, setCompareTools] = useState<Tool[]>([]);
 
   const categoryParam = searchParams.get('category');
   const searchParam = searchParams.get('search');
@@ -160,6 +169,11 @@ export default function Tools() {
               </span>
             </div>
             <button
+              onClick={() => {
+                const selected = tools.filter(t => compareList.includes(t.id));
+                setCompareTools(selected);
+                setShowCompareModal(true);
+              }}
               className="btn-primary px-4 py-2 text-sm"
               disabled={compareList.length < 2}
             >
@@ -322,6 +336,101 @@ export default function Tools() {
           </main>
         </div>
       </div>
+
+      {showCompareModal && compareTools.length >= 2 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto animate-fade-in-up">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <GitCompare className="w-5 h-5 text-primary-600" />
+                工具对比
+              </h3>
+              <button onClick={() => setShowCompareModal(false)} className="p-1 text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-medium text-gray-500 w-28">对比项</th>
+                    {compareTools.map(t => (
+                      <th key={t.id} className="text-left py-3 px-4 font-bold text-gray-800 min-w-[200px]">
+                        {t.name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="py-3 px-4 text-gray-500 flex items-center gap-1.5"><ExternalLink className="w-3.5 h-3.5" />入口地址</td>
+                    {compareTools.map(t => (
+                      <td key={t.id} className="py-3 px-4">
+                        <a href={t.url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700 break-all">{t.url}</a>
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 text-gray-500 flex items-center gap-1.5"><User className="w-3.5 h-3.5" />负责人</td>
+                    {compareTools.map(t => (
+                      <td key={t.id} className="py-3 px-4 text-gray-800">{t.owner}</td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 text-gray-500 flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" />访问量</td>
+                    {compareTools.map(t => (
+                      <td key={t.id} className="py-3 px-4 text-gray-800">{t.accessCount.toLocaleString()} 次</td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 text-gray-500">适用岗位</td>
+                    {compareTools.map(t => (
+                      <td key={t.id} className="py-3 px-4">
+                        <div className="flex flex-wrap gap-1">
+                          {t.positions.length > 0 ? t.positions.map(p => (
+                            <span key={p} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{p}</span>
+                          )) : <span className="text-gray-400">-</span>}
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 text-gray-500 flex items-center gap-1.5">
+                      {compareTools.some(t => t.requiresPermission) ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                      权限要求
+                    </td>
+                    {compareTools.map(t => (
+                      <td key={t.id} className="py-3 px-4">
+                        {t.requiresPermission ? (
+                          <span className={cn('badge', t.hasPermission ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700')}>
+                            {t.hasPermission ? '已授权' : '需申请'}
+                          </span>
+                        ) : (
+                          <span className="badge bg-green-100 text-green-700">全员可用</span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 text-gray-500 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />注意事项</td>
+                    {compareTools.map(t => (
+                      <td key={t.id} className="py-3 px-4 text-gray-600">{t.notes || '暂无'}</td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex gap-3 mt-6 justify-end">
+              <button onClick={() => { setShowCompareModal(false); setCompareList([]); }} className="btn-secondary px-6 py-2.5">
+                关闭并清空
+              </button>
+              <button onClick={() => setShowCompareModal(false)} className="btn-primary px-6 py-2.5">
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

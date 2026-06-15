@@ -12,11 +12,12 @@ import {
 } from 'lucide-react';
 import type { ChangeLog } from '../../shared/types';
 import { cn } from '@/lib/utils';
+import useStore from '@/store/useStore';
 
 export default function Changelog() {
   const [logs, setLogs] = useState<ChangeLog[]>([]);
   const [filterType, setFilterType] = useState<string | null>(null);
-  const [subscribed, setSubscribed] = useState(true);
+  const { subscriptions, fetchSubscriptions, updateSubscriptions } = useStore();
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -27,7 +28,14 @@ export default function Changelog() {
       }
     };
     fetchLogs();
-  }, []);
+    fetchSubscriptions();
+  }, [fetchSubscriptions]);
+
+  const subscribed = subscriptions.changelog;
+
+  const handleToggleSubscribe = () => {
+    updateSubscriptions({ changelog: !subscribed });
+  };
 
   const filteredLogs = filterType
     ? logs.filter(log => log.type === filterType)
@@ -48,7 +56,6 @@ export default function Changelog() {
     }
   };
 
-  // Group logs by month
   const groupedLogs = filteredLogs.reduce((acc, log) => {
     const date = new Date(log.createdAt);
     const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
@@ -74,7 +81,6 @@ export default function Changelog() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white border-b border-gray-100">
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -87,9 +93,8 @@ export default function Changelog() {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Subscribe Toggle */}
               <button
-                onClick={() => setSubscribed(!subscribed)}
+                onClick={handleToggleSubscribe}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-colors',
                   subscribed
@@ -103,7 +108,6 @@ export default function Changelog() {
             </div>
           </div>
 
-          {/* Filter Tabs */}
           <div className="flex gap-2 mt-6 overflow-x-auto pb-2">
             {types.map((type) => (
               <button
@@ -124,20 +128,16 @@ export default function Changelog() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Timeline */}
         <div className="max-w-3xl mx-auto">
           {Object.entries(groupedLogs).map(([month, monthLogs]) => (
             <div key={month} className="mb-8">
-              {/* Month Header */}
               <div className="flex items-center gap-3 mb-6">
                 <Calendar className="w-5 h-5 text-gray-400" />
                 <h2 className="text-lg font-bold text-gray-800">{formatMonth(month)}</h2>
                 <div className="flex-1 h-px bg-gray-200" />
               </div>
 
-              {/* Log Items */}
               <div className="relative">
-                {/* Vertical Line */}
                 <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-gray-200" />
 
                 <div className="space-y-6">
@@ -150,13 +150,11 @@ export default function Changelog() {
                         className="relative pl-14 animate-fade-in-up"
                         style={{ animationDelay: `${index * 0.1}s` }}
                       >
-                        {/* Dot */}
                         <div className={cn(
                           'absolute left-3 top-2 w-4 h-4 rounded-full ring-4 ring-white',
                           typeConfig.dot
                         )} />
 
-                        {/* Card */}
                         <div className="card card-hover p-5">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-3">
@@ -208,7 +206,6 @@ export default function Changelog() {
             </div>
           )}
 
-          {/* Subscribe Card */}
           <div className="card bg-gradient-to-r from-primary-50 to-accent-50 p-6 mt-8 border-none">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
@@ -220,7 +217,7 @@ export default function Changelog() {
                   开启订阅后，有新的工具变更会第一时间通知你，不错过任何重要更新
                 </p>
                 <button
-                  onClick={() => setSubscribed(!subscribed)}
+                  onClick={handleToggleSubscribe}
                   className={cn(
                     'px-5 py-2 rounded-lg text-sm font-medium transition-colors',
                     subscribed

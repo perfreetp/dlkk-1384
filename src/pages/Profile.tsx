@@ -27,10 +27,13 @@ export default function Profile() {
     permissionRequests,
     onboardingTasks,
     onboardingProgress,
+    subscriptions,
     fetchUserProfile,
     fetchFavorites,
     fetchPermissionRequests,
     fetchOnboarding,
+    fetchSubscriptions,
+    updateSubscriptions,
     toggleFavorite,
     completeOnboardingTask,
   } = useStore();
@@ -42,7 +45,8 @@ export default function Profile() {
     fetchFavorites();
     fetchPermissionRequests();
     fetchOnboarding();
-  }, [fetchUserProfile, fetchFavorites, fetchPermissionRequests, fetchOnboarding]);
+    fetchSubscriptions();
+  }, [fetchUserProfile, fetchFavorites, fetchPermissionRequests, fetchOnboarding, fetchSubscriptions]);
 
   const sidebarItems = [
     { id: 'favorites', label: '我的收藏', icon: Heart },
@@ -272,31 +276,35 @@ export default function Profile() {
 
                 <div className="card divide-y divide-gray-100">
                   {[
-                    { id: 'changelog', title: '变更记录通知', desc: '工具新增、更新、下线时通知', enabled: true },
-                    { id: 'toolUpdates', title: '工具更新提醒', desc: '关注的工具有重大更新时提醒', enabled: true },
-                    { id: 'permissionStatus', title: '权限审批结果', desc: '申请的权限有结果时通知', enabled: true },
-                    { id: 'weekly', title: '每周使用报告', desc: '每周一推送工具使用统计', enabled: false },
-                  ].map((item) => (
-                    <div key={item.id} className="p-5 flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium text-gray-800">{item.title}</h4>
-                        <p className="text-sm text-gray-500 mt-0.5">{item.desc}</p>
-                      </div>
-                      <button
-                        className={cn(
-                          'w-12 h-7 rounded-full transition-colors relative',
-                          item.enabled ? 'bg-primary-500' : 'bg-gray-200'
-                        )}
-                      >
-                        <div
+                    { id: 'changelog' as const, title: '变更记录通知', desc: '工具新增、更新、下线时通知' },
+                    { id: 'toolUpdates' as const, title: '工具更新提醒', desc: '关注的工具有重大更新时提醒' },
+                    { id: 'permissionStatus' as const, title: '权限审批结果', desc: '申请的权限有结果时通知' },
+                    { id: 'weekly' as const, title: '每周使用报告', desc: '每周一推送工具使用统计' },
+                  ].map((item) => {
+                    const enabled = subscriptions[item.id];
+                    return (
+                      <div key={item.id} className="p-5 flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium text-gray-800">{item.title}</h4>
+                          <p className="text-sm text-gray-500 mt-0.5">{item.desc}</p>
+                        </div>
+                        <button
+                          onClick={() => updateSubscriptions({ [item.id]: !enabled })}
                           className={cn(
-                            'absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform',
-                            item.enabled ? 'left-6' : 'left-1'
+                            'w-12 h-7 rounded-full transition-colors relative',
+                            enabled ? 'bg-primary-500' : 'bg-gray-200'
                           )}
-                        />
-                      </button>
-                    </div>
-                  ))}
+                        >
+                          <div
+                            className={cn(
+                              'absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                              enabled ? 'left-6' : 'left-1'
+                            )}
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

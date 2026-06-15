@@ -10,6 +10,10 @@ import {
   FileText,
   BarChart3,
   Grid3X3,
+  X,
+  AlertCircle,
+  MessageSquare,
+  Plus,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import useStore from '@/store/useStore';
@@ -36,6 +40,11 @@ export default function Home() {
   } = useStore();
 
   const [searchInput, setSearchInput] = useState('');
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<'broken-link' | 'recommend' | 'other'>('broken-link');
+  const [feedbackTitle, setFeedbackTitle] = useState('');
+  const [feedbackDesc, setFeedbackDesc] = useState('');
+  const { submitFeedback } = useStore();
 
   useEffect(() => {
     fetchPopularTools();
@@ -329,13 +338,75 @@ export default function Home() {
               <p className="text-sm text-primary-100 mb-4">
                 链接失效？想推荐新工具？欢迎告诉我们
               </p>
-              <button className="w-full bg-white/20 hover:bg-white/30 text-white font-medium py-2.5 rounded-xl transition-colors">
+              <button
+                onClick={() => { setShowFeedbackModal(true); setFeedbackType('broken-link'); setFeedbackTitle(''); setFeedbackDesc(''); }}
+                className="w-full bg-white/20 hover:bg-white/30 text-white font-medium py-2.5 rounded-xl transition-colors"
+              >
                 提交反馈
               </button>
             </section>
           </div>
         </div>
       </div>
+
+      {showFeedbackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 animate-fade-in-up">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800">提交反馈</h3>
+              <button onClick={() => setShowFeedbackModal(false)} className="p-1 text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">反馈类型</label>
+                <div className="flex gap-2">
+                  {([
+                    { value: 'broken-link' as const, label: '链接失效', icon: AlertCircle, color: 'text-red-500' },
+                    { value: 'recommend' as const, label: '工具推荐', icon: Plus, color: 'text-green-500' },
+                    { value: 'other' as const, label: '其他反馈', icon: MessageSquare, color: 'text-blue-500' },
+                  ]).map(t => (
+                    <button
+                      key={t.value}
+                      onClick={() => setFeedbackType(t.value)}
+                      className={cn(
+                        'flex-1 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-1.5',
+                        feedbackType === t.value ? 'bg-primary-50 text-primary-700 ring-2 ring-primary-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      )}
+                    >
+                      <t.icon className="w-4 h-4" />
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">标题 *</label>
+                <input type="text" value={feedbackTitle} onChange={e => setFeedbackTitle(e.target.value)} placeholder="简要描述问题或建议" className="input-field" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">详细说明 *</label>
+                <textarea rows={4} value={feedbackDesc} onChange={e => setFeedbackDesc(e.target.value)} placeholder="请详细描述..." className="input-field resize-none" />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowFeedbackModal(false)} className="flex-1 btn-secondary py-2.5">取消</button>
+              <button
+                onClick={async () => {
+                  if (!feedbackTitle.trim() || !feedbackDesc.trim()) return;
+                  await submitFeedback({ type: feedbackType, title: feedbackTitle, description: feedbackDesc });
+                  setShowFeedbackModal(false);
+                  setFeedbackTitle('');
+                  setFeedbackDesc('');
+                }}
+                disabled={!feedbackTitle.trim() || !feedbackDesc.trim()}
+                className="flex-1 btn-primary py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                提交
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

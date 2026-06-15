@@ -17,6 +17,7 @@ interface AppState {
   searchQuery: string;
   selectedCategory: string | null;
   notifications: number;
+  subscriptions: { changelog: boolean; toolUpdates: boolean; permissionStatus: boolean; weekly: boolean };
   setDepartment: (dept: 'marketing' | 'customer-service') => void;
   setSearchQuery: (query: string) => void;
   setSelectedCategory: (cat: string | null) => void;
@@ -31,9 +32,15 @@ interface AppState {
   fetchFeedbacks: () => Promise<void>;
   fetchUserProfile: () => Promise<void>;
   fetchOnboarding: () => Promise<void>;
+  fetchSubscriptions: () => Promise<void>;
+  updateSubscriptions: (subs: Partial<AppState['subscriptions']>) => Promise<void>;
   completeOnboardingTask: (taskId: string) => Promise<void>;
   submitPermissionRequest: (data: { toolId: string; toolName: string; reason: string; urgency: string }) => Promise<void>;
+  approvePermission: (id: string, action: 'approved' | 'rejected', approveNote?: string) => Promise<void>;
   submitFeedback: (data: { type: string; title: string; description: string; toolId?: string; toolName?: string }) => Promise<void>;
+  addTool: (data: Partial<Tool>) => Promise<void>;
+  updateTool: (id: string, data: Partial<Tool>) => Promise<void>;
+  deleteTool: (id: string) => Promise<void>;
 }
 
 const API_BASE = 'http://localhost:3001/api';
@@ -54,6 +61,7 @@ const useStore = create<AppState>((set, get) => ({
   searchQuery: '',
   selectedCategory: null,
   notifications: 3,
+  subscriptions: { changelog: true, toolUpdates: true, permissionStatus: true, weekly: false },
 
   setDepartment: (dept) => set({ currentDepartment: dept }),
   setSearchQuery: (query) => set({ searchQuery: query }),
@@ -205,6 +213,77 @@ const useStore = create<AppState>((set, get) => ({
       body: JSON.stringify({ ...data, submitter: '张小明' }),
     });
     await res.json();
+  },
+
+  fetchSubscriptions: async () => {
+    const res = await fetch(`${API_BASE}/user/subscriptions`);
+    const data = await res.json();
+    if (data.success) {
+      set({ subscriptions: { changelog: data.data.changelog, toolUpdates: data.data.toolUpdates, permissionStatus: data.data.permissionStatus, weekly: false } });
+    }
+  },
+
+  updateSubscriptions: async (subs) => {
+    const newSubs = { ...get().subscriptions, ...subs };
+    set({ subscriptions: newSubs });
+    const res = await fetch(`${API_BASE}/user/subscriptions`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newSubs),
+    });
+    const data = await res.json();
+    if (data.success) {
+      set({ subscriptions: { changelog: data.data.changelog, toolUpdates: data.data.toolUpdates, permissionStatus: data.data.permissionStatus, weekly: false } });
+    }
+  },
+
+  approvePermission: async (id, action, approveNote) => {
+    const endpoint = action === 'approved' ? 'approve' : 'reject';
+    const res = await fetch(`${API_BASE}/permissions/${id}/${endpoint}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approver: '管理员', approveNote: approveNote || '' }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      get().fetchPermissionRequests();
+    }
+  },
+
+  addTool: async (data) => {
+    const res = await fetch(`${API_BASE}/tools`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (result.success) {
+      get().fetchTools({ pageSize: '50' });
+      get().fetchCategories();
+    }
+  },
+
+  updateTool: async (id, data) => {
+    const res = await fetch(`${API_BASE}/tools/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (result.success) {
+      get().fetchTools({ pageSize: '50' });
+    }
+  },
+
+  deleteTool: async (id) => {
+    const res = await fetch(`${API_BASE}/tools/${id}`, {
+      method: 'DELETE',
+    });
+    const result = await res.json();
+    if (result.success) {
+      get().fetchTools({ pageSize: '50' });
+      get().fetchCategories();
+    }
   },
 }));
 
