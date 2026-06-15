@@ -8,11 +8,11 @@ import {
   Edit3,
   Trash2,
   Search,
-  ChevronRight,
   CheckCircle,
   Clock,
   AlertCircle,
   X,
+  Filter,
 } from 'lucide-react';
 import useStore from '@/store/useStore';
 import { cn } from '@/lib/utils';
@@ -35,7 +35,7 @@ interface ToolFormData {
 const emptyForm: ToolFormData = {
   name: '',
   url: '',
-  category: '沟通协作',
+  category: 'communication',
   department: 'all',
   description: '',
   owner: '',
@@ -48,7 +48,7 @@ const emptyForm: ToolFormData = {
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState('tools');
-  const { tools, permissionRequests, feedbacks, fetchTools, fetchPermissionRequests, fetchFeedbacks, addTool, updateTool, deleteTool, approvePermission } = useStore();
+  const { tools, categories, permissionRequests, feedbacks, fetchTools, fetchCategories, fetchPermissionRequests, fetchFeedbacks, addTool, updateTool, deleteTool, approvePermission, updateFeedbackStatus } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddToolModal, setShowAddToolModal] = useState(false);
   const [showEditToolModal, setShowEditToolModal] = useState(false);
@@ -56,12 +56,15 @@ export default function Admin() {
   const [form, setForm] = useState<ToolFormData>(emptyForm);
   const [showApproveModal, setShowApproveModal] = useState<string | null>(null);
   const [approveNote, setApproveNote] = useState('');
+  const [feedbackTypeFilter, setFeedbackTypeFilter] = useState<string>('all');
+  const [feedbackStatusFilter, setFeedbackStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchTools({ pageSize: '50' });
+    fetchCategories();
     fetchPermissionRequests();
     fetchFeedbacks();
-  }, [fetchTools, fetchPermissionRequests, fetchFeedbacks]);
+  }, [fetchTools, fetchCategories, fetchPermissionRequests, fetchFeedbacks]);
 
   const sidebarItems = [
     { id: 'tools', label: '工具管理', icon: Wrench, count: tools.length },
@@ -92,6 +95,7 @@ export default function Admin() {
       positions: form.positions.split(/[,，]/).map(s => s.trim()).filter(Boolean),
       tags: form.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean),
     });
+    fetchCategories();
     setShowAddToolModal(false);
     setForm(emptyForm);
   };
@@ -129,6 +133,7 @@ export default function Admin() {
       positions: form.positions.split(/[,，]/).map(s => s.trim()).filter(Boolean),
       tags: form.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean),
     });
+    fetchCategories();
     setShowEditToolModal(false);
     setEditingTool(null);
     setForm(emptyForm);
@@ -136,6 +141,7 @@ export default function Admin() {
 
   const handleDeleteTool = async (id: string) => {
     await deleteTool(id);
+    fetchCategories();
   };
 
   const handleApprove = async (id: string, action: 'approved' | 'rejected') => {
@@ -143,6 +149,12 @@ export default function Admin() {
     setShowApproveModal(null);
     setApproveNote('');
   };
+
+  const filteredFeedbacks = (feedbacks || []).filter((fb: any) => {
+    if (feedbackTypeFilter !== 'all' && fb.type !== feedbackTypeFilter) return false;
+    if (feedbackStatusFilter !== 'all' && fb.status !== feedbackStatusFilter) return false;
+    return true;
+  });
 
   const renderForm = (onSubmit: () => void, submitLabel: string) => (
     <div className="space-y-4">
@@ -158,14 +170,9 @@ export default function Admin() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">工具分类</label>
           <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="input-field">
-            <option>沟通协作</option>
-            <option>文档协作</option>
-            <option>数据分析</option>
-            <option>营销推广</option>
-            <option>客服工具</option>
-            <option>内部系统</option>
-            <option>设计工具</option>
-            <option>其他</option>
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
           </select>
         </div>
         <div>
@@ -311,33 +318,36 @@ export default function Admin() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {filteredTools.map((tool) => (
-                        <tr key={tool.id} className="hover:bg-gray-50">
-                          <td className="px-5 py-4">
-                            <div className="font-medium text-gray-800">{tool.name}</div>
-                            <div className="text-xs text-gray-400 truncate max-w-xs">{tool.description}</div>
-                          </td>
-                          <td className="px-5 py-4 text-sm text-gray-600 hidden md:table-cell">
-                            {tool.category}
-                          </td>
-                          <td className="px-5 py-4 text-sm text-gray-600 hidden lg:table-cell">
-                            {tool.owner}
-                          </td>
-                          <td className="px-5 py-4 text-sm text-gray-600">
-                            {tool.accessCount.toLocaleString()}
-                          </td>
-                          <td className="px-5 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button onClick={() => handleEditTool(tool)} className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
-                                <Edit3 className="w-4 h-4" />
-                              </button>
-                              <button onClick={() => handleDeleteTool(tool.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {filteredTools.map((tool) => {
+                        const catName = categories.find(c => c.id === tool.category)?.name || tool.category;
+                        return (
+                          <tr key={tool.id} className="hover:bg-gray-50">
+                            <td className="px-5 py-4">
+                              <div className="font-medium text-gray-800">{tool.name}</div>
+                              <div className="text-xs text-gray-400 truncate max-w-xs">{tool.description}</div>
+                            </td>
+                            <td className="px-5 py-4 text-sm text-gray-600 hidden md:table-cell">
+                              {catName}
+                            </td>
+                            <td className="px-5 py-4 text-sm text-gray-600 hidden lg:table-cell">
+                              {tool.owner}
+                            </td>
+                            <td className="px-5 py-4 text-sm text-gray-600">
+                              {tool.accessCount.toLocaleString()}
+                            </td>
+                            <td className="px-5 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => handleEditTool(tool)} className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => handleDeleteTool(tool.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -431,9 +441,39 @@ export default function Admin() {
             {activeTab === 'feedback' && (
               <div className="animate-fade-in">
                 <h2 className="text-lg font-bold text-gray-800 mb-4">反馈管理</h2>
+
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-gray-400" />
+                    <select
+                      value={feedbackTypeFilter}
+                      onChange={e => setFeedbackTypeFilter(e.target.value)}
+                      className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                    >
+                      <option value="all">全部类型</option>
+                      <option value="broken-link">链接失效</option>
+                      <option value="recommend">工具推荐</option>
+                      <option value="other">其他反馈</option>
+                    </select>
+                  </div>
+                  <select
+                    value={feedbackStatusFilter}
+                    onChange={e => setFeedbackStatusFilter(e.target.value)}
+                    className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                  >
+                    <option value="all">全部状态</option>
+                    <option value="pending">待处理</option>
+                    <option value="processing">处理中</option>
+                    <option value="resolved">已解决</option>
+                  </select>
+                  <span className="text-sm text-gray-500 ml-auto">
+                    共 {filteredFeedbacks.length} 条反馈
+                  </span>
+                </div>
+
                 <div className="space-y-3">
-                  {feedbacks && feedbacks.length > 0 ? (
-                    feedbacks.map((fb: any) => {
+                  {filteredFeedbacks.length > 0 ? (
+                    filteredFeedbacks.map((fb: any) => {
                       const statusConfig = {
                         pending: { label: '待处理', className: 'bg-amber-100 text-amber-700' },
                         processing: { label: '处理中', className: 'bg-blue-100 text-blue-700' },
@@ -466,9 +506,30 @@ export default function Admin() {
                           <p className="text-sm text-gray-600 mb-3">{fb.description}</p>
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-400">提交者：{fb.submitter} · {new Date(fb.createdAt).toLocaleString()}</span>
-                            <button className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-                              处理
-                            </button>
+                            {fb.status !== 'resolved' && (
+                              <div className="flex gap-2">
+                                {fb.status === 'pending' && (
+                                  <button
+                                    onClick={() => updateFeedbackStatus(fb.id, 'processing')}
+                                    className="text-sm text-blue-600 hover:text-blue-700 font-medium px-3 py-1 bg-blue-50 rounded-lg transition-colors"
+                                  >
+                                    标为处理中
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => updateFeedbackStatus(fb.id, 'resolved')}
+                                  className="text-sm text-green-600 hover:text-green-700 font-medium px-3 py-1 bg-green-50 rounded-lg transition-colors"
+                                >
+                                  标为已解决
+                                </button>
+                              </div>
+                            )}
+                            {fb.status === 'resolved' && (
+                              <span className="text-xs text-green-600 flex items-center gap-1">
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                已处理完成
+                              </span>
+                            )}
                           </div>
                         </div>
                       );
@@ -477,7 +538,7 @@ export default function Admin() {
                     <div className="card p-12 text-center">
                       <MessageSquare className="w-16 h-16 text-gray-200 mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-gray-800 mb-2">暂无反馈</h3>
-                      <p className="text-gray-500">目前还没有用户反馈</p>
+                      <p className="text-gray-500">该筛选条件下没有反馈记录</p>
                     </div>
                   )}
                 </div>

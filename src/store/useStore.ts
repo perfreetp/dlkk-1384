@@ -5,6 +5,9 @@ interface AppState {
   currentDepartment: 'marketing' | 'customer-service';
   currentUser: User | null;
   tools: Tool[];
+  toolsTotal: number;
+  toolsPage: number;
+  toolsPageSize: number;
   categories: Category[];
   popularTools: Tool[];
   favoriteTools: Tool[];
@@ -41,6 +44,7 @@ interface AppState {
   addTool: (data: Partial<Tool>) => Promise<void>;
   updateTool: (id: string, data: Partial<Tool>) => Promise<void>;
   deleteTool: (id: string) => Promise<void>;
+  updateFeedbackStatus: (id: string, status: string) => Promise<void>;
 }
 
 const API_BASE = 'http://localhost:3001/api';
@@ -49,6 +53,9 @@ const useStore = create<AppState>((set, get) => ({
   currentDepartment: 'marketing',
   currentUser: null,
   tools: [],
+  toolsTotal: 0,
+  toolsPage: 1,
+  toolsPageSize: 12,
   categories: [],
   popularTools: [],
   favoriteTools: [],
@@ -72,7 +79,12 @@ const useStore = create<AppState>((set, get) => ({
     const res = await fetch(`${API_BASE}/tools${query ? `?${query}` : ''}`);
     const data = await res.json();
     if (data.success) {
-      set({ tools: data.data });
+      set({
+        tools: data.data,
+        toolsTotal: data.total ?? data.data.length,
+        toolsPage: data.page ?? 1,
+        toolsPageSize: data.pageSize ?? 12,
+      });
     }
   },
 
@@ -219,7 +231,12 @@ const useStore = create<AppState>((set, get) => ({
     const res = await fetch(`${API_BASE}/user/subscriptions`);
     const data = await res.json();
     if (data.success) {
-      set({ subscriptions: { changelog: data.data.changelog, toolUpdates: data.data.toolUpdates, permissionStatus: data.data.permissionStatus, weekly: false } });
+      set({ subscriptions: {
+        changelog: data.data.changelog ?? true,
+        toolUpdates: data.data.toolUpdates ?? true,
+        permissionStatus: data.data.permissionStatus ?? true,
+        weekly: data.data.weekly ?? false,
+      } });
     }
   },
 
@@ -233,7 +250,12 @@ const useStore = create<AppState>((set, get) => ({
     });
     const data = await res.json();
     if (data.success) {
-      set({ subscriptions: { changelog: data.data.changelog, toolUpdates: data.data.toolUpdates, permissionStatus: data.data.permissionStatus, weekly: false } });
+      set({ subscriptions: {
+        changelog: data.data.changelog ?? true,
+        toolUpdates: data.data.toolUpdates ?? true,
+        permissionStatus: data.data.permissionStatus ?? true,
+        weekly: data.data.weekly ?? false,
+      } });
     }
   },
 
@@ -283,6 +305,18 @@ const useStore = create<AppState>((set, get) => ({
     if (result.success) {
       get().fetchTools({ pageSize: '50' });
       get().fetchCategories();
+    }
+  },
+
+  updateFeedbackStatus: async (id, status) => {
+    const res = await fetch(`${API_BASE}/feedback/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    const result = await res.json();
+    if (result.success) {
+      get().fetchFeedbacks();
     }
   },
 }));

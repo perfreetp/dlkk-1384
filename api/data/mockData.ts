@@ -596,6 +596,7 @@ export const users: User[] = [
       changelog: true,
       toolUpdates: true,
       permissionStatus: true,
+      weekly: false,
     },
   },
   {
@@ -610,6 +611,7 @@ export const users: User[] = [
       changelog: false,
       toolUpdates: true,
       permissionStatus: true,
+      weekly: false,
     },
   },
   {
@@ -624,6 +626,7 @@ export const users: User[] = [
       changelog: true,
       toolUpdates: true,
       permissionStatus: true,
+      weekly: false,
     },
   },
 ];

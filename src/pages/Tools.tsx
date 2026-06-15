@@ -1,12 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Filter,
   Grid3X3,
   List,
   SlidersHorizontal,
-  ChevronDown,
-  ChevronUp,
   Search,
   X,
   GitCompare,
@@ -16,6 +14,8 @@ import {
   User,
   BarChart3,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import useStore from '@/store/useStore';
@@ -25,7 +25,7 @@ import type { Tool } from '../../shared/types';
 
 export default function Tools() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { tools, categories, fetchTools, fetchCategories, toggleFavorite } = useStore();
+  const { tools, toolsTotal, toolsPage, toolsPageSize, categories, fetchTools, fetchCategories, toggleFavorite } = useStore();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showMobileFilter, setShowMobileFilter] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -42,17 +42,31 @@ export default function Tools() {
     fetchCategories();
   }, [fetchCategories]);
 
-  useEffect(() => {
+  const buildFetchParams = useCallback((page?: number) => {
     const params: Record<string, string> = {};
     if (searchParam) params.search = searchParam;
-    if (categoryParam) params.category = categoryParam;
+    if (selectedCategories.length === 1) params.category = selectedCategories[0];
     params.sort = sortBy;
-    fetchTools(params);
+    params.pageSize = String(toolsPageSize);
+    params.page = String(page ?? toolsPage);
+    return params;
+  }, [searchParam, selectedCategories, sortBy, toolsPageSize, toolsPage]);
+
+  useEffect(() => {
+    fetchTools(buildFetchParams(1));
     setSearchInput(searchParam || '');
     if (categoryParam) {
       setSelectedCategories([categoryParam]);
     }
   }, [fetchTools, searchParam, categoryParam, sortBy]);
+
+  useEffect(() => {
+    if (selectedCategories.length > 0) {
+      fetchTools(buildFetchParams(1));
+    }
+  }, [selectedCategories]);
+
+  const totalPages = Math.ceil(toolsTotal / toolsPageSize);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,12 +109,17 @@ export default function Tools() {
     setSearchParams({});
   };
 
+  const goToPage = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    fetchTools(buildFetchParams(page));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const hasFilters = selectedCategories.length > 0 || searchInput.length > 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-6">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">工具目录</h1>
@@ -159,7 +178,6 @@ export default function Tools() {
           </div>
         </div>
 
-        {/* Compare Bar */}
         {compareList.length > 0 && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-white rounded-2xl shadow-xl border border-gray-100 px-6 py-4 flex items-center gap-4 animate-fade-in-up">
             <div className="flex items-center gap-2">
@@ -189,7 +207,6 @@ export default function Tools() {
         )}
 
         <div className="flex gap-6">
-          {/* Sidebar Filter */}
           <aside className={cn(
             'w-64 flex-shrink-0',
             'md:block',
@@ -214,10 +231,22 @@ export default function Tools() {
                 )}
               </div>
 
-              {/* Categories */}
               <div className="mb-6">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">工具分类</h4>
                 <div className="space-y-1">
+                  <button
+                    onClick={() => { setSelectedCategories([]); setSearchParams({}); }}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors text-left',
+                      selectedCategories.length === 0
+                        ? 'bg-primary-50 text-primary-700 font-medium'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    )}
+                  >
+                    <Grid3X3 className="w-4 h-4" />
+                    <span className="flex-1">全部</span>
+                    <span className="text-xs text-gray-400">{categories.reduce((s, c) => s + c.count, 0)}</span>
+                  </button>
                   {categories.map((cat) => {
                     const IconComp = (LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[cat.icon] || LucideIcons.Grid;
                     const isSelected = selectedCategories.includes(cat.id);
@@ -240,53 +269,21 @@ export default function Tools() {
                   })}
                 </div>
               </div>
-
-              {/* Permission Filter */}
-              <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">权限状态</h4>
-                <div className="space-y-1">
-                  {[
-                    { label: '全部', value: 'all' },
-                    { label: '可直接访问', value: 'available' },
-                    { label: '需要申请', value: 'request' },
-                  ].map((item) => (
-                    <button
-                      key={item.value}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-50 text-left"
-                    >
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tags */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3">热门标签</h4>
-                <div className="flex flex-wrap gap-2">
-                  {['数据分析', '即时通讯', '客户服务', '营销推广', '文档协作', '设计工具'].map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs rounded-full cursor-pointer transition-colors"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
             </div>
           </aside>
 
-          {/* Main Content */}
           <main className="flex-1 min-w-0">
-            {/* Results Info */}
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-gray-500">
-                共 <span className="font-medium text-gray-800">{tools.length}</span> 个工具
+                共 <span className="font-medium text-gray-800">{toolsTotal}</span> 个工具
+                {selectedCategories.length > 0 && (
+                  <span className="ml-2 text-primary-600">
+                    · {categories.find(c => c.id === selectedCategories[0])?.name || selectedCategories[0]}
+                  </span>
+                )}
               </p>
             </div>
 
-            {/* Tools Grid/List */}
             {viewMode === 'grid' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {tools.map((tool, index) => (
@@ -314,13 +311,12 @@ export default function Tools() {
                     className="card card-hover p-4 flex items-center gap-4 animate-fade-in-up"
                     style={{ animationDelay: `${index * 0.03}s` }}
                   >
-                    <ToolCard tool={tool} variant="horizontal" showRank={index + 1} onToggleFavorite={() => toggleFavorite(tool.id)} />
+                    <ToolCard tool={tool} variant="horizontal" showRank={(toolsPage - 1) * toolsPageSize + index + 1} onToggleFavorite={() => toggleFavorite(tool.id)} />
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Empty State */}
             {tools.length === 0 && (
               <div className="text-center py-16">
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -331,6 +327,42 @@ export default function Tools() {
                 <button onClick={clearFilters} className="btn-primary">
                   清除筛选
                 </button>
+              </div>
+            )}
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <button
+                  onClick={() => goToPage(toolsPage - 1)}
+                  disabled={toolsPage <= 1}
+                  className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => goToPage(page)}
+                    className={cn(
+                      'w-10 h-10 rounded-lg text-sm font-medium transition-colors',
+                      page === toolsPage
+                        ? 'bg-primary-600 text-white'
+                        : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    )}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  onClick={() => goToPage(toolsPage + 1)}
+                  disabled={toolsPage >= totalPages}
+                  className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <span className="text-sm text-gray-500 ml-2">
+                  第 {toolsPage} / {totalPages} 页
+                </span>
               </div>
             )}
           </main>

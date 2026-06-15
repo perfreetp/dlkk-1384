@@ -85,6 +85,7 @@ export interface User {
     changelog: boolean;
     toolUpdates: boolean;
     permissionStatus: boolean;
+    weekly: boolean;
   };
 }
 
